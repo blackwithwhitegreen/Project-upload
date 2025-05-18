@@ -8,7 +8,8 @@ import torch
 from sentence_transformers import SentenceTransformer, util
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import textwrap
-from secret_api_keys import HUGGINGFACE_TOKEN  # Import from separate file
+import os
+from huggingface_hub import login
 
 # Configuration
 EMBEDDING_MODEL_NAME = "all-mpnet-base-v2"
@@ -16,6 +17,12 @@ LLM_MODEL_NAME = "google/gemma-2b-it"
 NUM_CONTEXT_CHUNKS = 5
 SENTENCE_CHUNK_SIZE = 10
 MIN_TOKEN_LENGTH = 30
+
+if 'HUGGINGFACE_TOKEN' in st.secrets:
+    login(token=st.secrets['HUGGINGFACE_TOKEN'])
+else:
+    st.error("Hugging Face token not found in secrets!")
+    st.stop()
 
 # Initialize session state
 if "processed_pdf" not in st.session_state:
