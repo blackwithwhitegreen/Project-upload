@@ -1,0 +1,7 @@
+streamlit>=1.20.0
+langchain>=0.0.192
+chromadb>=0.3.24
+PyPDF2>=3.0.1
+huggingface-hub>=0.14.1
+sentence-transformers>=2.2.2
+transformers>=4.30.2
