@@ -9,3 +9,5 @@ torch==2.2.2
 bitsandbytes==0.43.0
 huggingface-hub==0.22.2
 numpy==1.26.4
+accelerate>=0.29.3
+bitsandbytes>=0.43.0
