@@ -11,14 +11,27 @@ from langchain_community.llms import HuggingFacePipeline
 from transformers import AutoTokenizer, pipeline, AutoModelForSeq2SeqLM
 
 # Fix for event loop issues
-if os.name == 'nt':  # Windows
+if os.name == 'nt':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Set up the environment
 MODEL_NAME = "google/flan-t5-base"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
+
+def initialize_general_model():
+    """Initialize the model for general knowledge questions"""
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    
+    return pipeline(
+        "text2text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_length=256,
+        temperature=0,
+        repetition_penalty=1.2
+    )
 
 def create_vector_store(pdf_path):
     """Process PDF and create FAISS vector store"""
@@ -32,67 +45,73 @@ def create_vector_store(pdf_path):
     texts = text_splitter.split_documents(pages)
 
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    vectorstore = FAISS.from_documents(texts, embeddings)
-    return vectorstore
+    return FAISS.from_documents(texts, embeddings)
 
 def create_qa_chain(vectorstore):
-    """Create the Retrieval QA chain"""
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
-    
-    pipe = pipeline(
-        "text2text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        max_length=256,
-        temperature=0,
-        repetition_penalty=1.2
-    )
-
+    """Create the Retrieval QA chain for PDF content"""
+    pipe = initialize_general_model()
     llm = HuggingFacePipeline(pipeline=pipe)
-    qa_chain = RetrievalQA.from_chain_type(
+    
+    return RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=vectorstore.as_retriever(),
         return_source_documents=True
     )
-    return qa_chain
 
 def main():
-    st.title("PDF Question Answering System")
-    st.write("Upload a PDF and ask questions about its content!")
+    st.title("Smart Question Answering System")
+    st.write("Choose between PDF-based answers or general knowledge!")
+    
+    # Add mode selection
+    mode = st.radio("Select answer source:",
+                    ("PDF Content", "General Knowledge"),
+                    horizontal=True)
 
-    # File upload
-    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+    # Initialize general model pipeline
+    if 'general_pipe' not in st.session_state:
+        st.session_state.general_pipe = initialize_general_model()
 
-    if uploaded_file is not None:
-        # Save uploaded file to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_path = tmp_file.name
-
-        # Process PDF and create vector store
-        with st.spinner("Processing PDF..."):
-            vectorstore = create_vector_store(tmp_path)
-            os.remove(tmp_path)  # Clean up temp file
-
-        # Create QA chain
-        qa_chain = create_qa_chain(vectorstore)
-
-        # Store QA chain in session state
-        st.session_state['qa_chain'] = qa_chain
-
-        # Question input
-        question = st.text_input("Enter your question:")
+    if mode == "PDF Content":
+        uploaded_file = st.file_uploader("Upload PDF", type="pdf")
         
-        if question:
-            with st.spinner("Searching for answer..."):
+        if uploaded_file is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(uploaded_file.getvalue())
+                tmp_path = tmp_file.name
+
+            with st.spinner("Processing PDF..."):
+                vectorstore = create_vector_store(tmp_path)
+                os.remove(tmp_path)
+                st.session_state['qa_chain'] = create_qa_chain(vectorstore)
+
+    question = st.text_input("Enter your question:")
+    
+    if question:
+        with st.spinner("Generating answer..."):
+            if mode == "General Knowledge":
+                # Use model's general knowledge
+                result = st.session_state.general_pipe(
+                    question,
+                    max_length=256,
+                    temperature=0
+                )[0]['generated_text']
+                
+                st.subheader("Answer:")
+                st.write(result)
+                st.info("This answer is generated from the model's general knowledge")
+                
+            elif mode == "PDF Content":
+                if 'qa_chain' not in st.session_state:
+                    st.warning("Please upload a PDF file first!")
+                    return
+                
+                # Use PDF-based answering
                 result = st.session_state['qa_chain']({"query": question})
                 
                 st.subheader("Answer:")
                 st.write(result["result"])
-
-                # Display source documents
+                
                 st.subheader("Source Documents:")
                 for doc in result["source_documents"]:
                     st.write(f"Page {doc.metadata['page'] + 1}:")
