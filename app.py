@@ -1,14 +1,18 @@
-# app.py
-import streamlit as st
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain.llms import HuggingFacePipeline
-from transformers import AutoTokenizer, pipeline, AutoModelForSeq2SeqLM
+import asyncio
 import tempfile
 import os
+import streamlit as st
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain_community.llms import HuggingFacePipeline
+from transformers import AutoTokenizer, pipeline, AutoModelForSeq2SeqLM
+
+# Fix for event loop issues
+if os.name == 'nt':  # Windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Set up the environment
 MODEL_NAME = "google/flan-t5-base"
@@ -17,9 +21,7 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 
 def create_vector_store(pdf_path):
-    """
-    Process PDF and create FAISS vector store
-    """
+    """Process PDF and create FAISS vector store"""
     loader = PyPDFLoader(pdf_path)
     pages = loader.load_and_split()
 
@@ -34,9 +36,7 @@ def create_vector_store(pdf_path):
     return vectorstore
 
 def create_qa_chain(vectorstore):
-    """
-    Create the Retrieval QA chain
-    """
+    """Create the Retrieval QA chain"""
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
     
