@@ -1,7 +1,10 @@
 import asyncio
 import tempfile
 import os
+import fitz  # PyMuPDF
+import io
 import streamlit as st
+from PIL import Image
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -59,25 +62,32 @@ def create_qa_chain(vectorstore):
         return_source_documents=True
     )
 
+def render_pdf_page(pdf_bytes, page_number):
+    """Render specific PDF page as image"""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page = doc.load_page(page_number)
+    pix = page.get_pixmap()
+    img_bytes = pix.tobytes()
+    return Image.open(io.BytesIO(img_bytes))
+
 def main():
-    st.title("Smart Question Answering System")
-    st.write("Choose between PDF-based answers or general knowledge!")
+    st.title("Smart QA System with PDF Visualization")
+    st.write("Get answers with source page images!")
     
-    # Add mode selection
+    # Initialize session states
+    if 'pdf_bytes' not in st.session_state:
+        st.session_state.pdf_bytes = None
+
     mode = st.radio("Select answer source:",
                     ("PDF Content", "General Knowledge"),
                     horizontal=True)
 
-    # Initialize general model pipeline
-    if 'general_pipe' not in st.session_state:
-        st.session_state.general_pipe = initialize_general_model()
-
     if mode == "PDF Content":
         uploaded_file = st.file_uploader("Upload PDF", type="pdf")
-        
         if uploaded_file is not None:
+            st.session_state.pdf_bytes = uploaded_file.getvalue()
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                tmp_file.write(uploaded_file.getvalue())
+                tmp_file.write(st.session_state.pdf_bytes)
                 tmp_path = tmp_file.name
 
             with st.spinner("Processing PDF..."):
@@ -90,7 +100,9 @@ def main():
     if question:
         with st.spinner("Generating answer..."):
             if mode == "General Knowledge":
-                # Use model's general knowledge
+                if 'general_pipe' not in st.session_state:
+                    st.session_state.general_pipe = initialize_general_model()
+                
                 result = st.session_state.general_pipe(
                     question,
                     max_length=256,
@@ -106,16 +118,29 @@ def main():
                     st.warning("Please upload a PDF file first!")
                     return
                 
-                # Use PDF-based answering
                 result = st.session_state['qa_chain']({"query": question})
                 
+                # Display answer
                 st.subheader("Answer:")
                 st.write(result["result"])
                 
-                st.subheader("Source Documents:")
+                # Display source documents with images
+                st.subheader("Source Evidence:")
                 for doc in result["source_documents"]:
-                    st.write(f"Page {doc.metadata['page'] + 1}:")
-                    st.write(doc.page_content)
+                    page_num = doc.metadata['page']
+                    
+                    col1, col2 = st.columns([2, 3])
+                    with col1:
+                        try:
+                            img = render_pdf_page(st.session_state.pdf_bytes, page_num)
+                            st.image(img, caption=f"Page {page_num + 1}", use_column_width=True)
+                        except Exception as e:
+                            st.error(f"Error rendering page: {str(e)}")
+                    
+                    with col2:
+                        st.write(f"**Page {page_num + 1} Content:**")
+                        st.write(doc.page_content)
+                    
                     st.write("---")
 
 if __name__ == "__main__":
