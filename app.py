@@ -79,7 +79,7 @@ def main():
         st.session_state.pdf_bytes = None
 
     mode = st.radio("Select answer source:",
-                    ("PDF Content", "General Knowledge"),
+                    ("PDF Content", "Text input"),
                     horizontal=True)
 
     if mode == "PDF Content":
