@@ -71,7 +71,7 @@ def render_pdf_page(pdf_bytes, page_number):
     return Image.open(io.BytesIO(img_bytes))
 
 def main():
-    st.title("Smart QA System with PDF Visualization")
+    st.title("VectorAsk")
     st.write("Get answers with source page images!")
     
     # Initialize session states
@@ -79,7 +79,7 @@ def main():
         st.session_state.pdf_bytes = None
 
     mode = st.radio("Select answer source:",
-                    ("PDF Content", "General Knowledge"),
+                    ("PDF Content", "Text input"),
                     horizontal=True)
 
     if mode == "PDF Content":
