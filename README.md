@@ -89,9 +89,9 @@ Change model or embedding model in app.py:
 
 # Model Info
 
-LLM: FLAN-T5 Base
+LLM: `FLAN-T5 Base`
 
-Embeddings: all-MiniLM-L6-v2
+Embeddings: `all-MiniLM-L6-v2`
 
 
 
