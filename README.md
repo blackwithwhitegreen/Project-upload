@@ -26,6 +26,6 @@ Demo
 Run the app with:
 
 
-    ```
+
     streamlit run app.py
-    ```
+Replace app.py with your actual Python filename.
