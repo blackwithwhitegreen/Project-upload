@@ -97,6 +97,6 @@ Embeddings: all-MiniLM-L6-v2
 
 # License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 
