@@ -71,7 +71,7 @@ def render_pdf_page(pdf_bytes, page_number):
     return Image.open(io.BytesIO(img_bytes))
 
 def main():
-    st.title("VectorAsk")
+    st.title("Question Ask")
     st.write("Get answers with source page images!")
     
     # Initialize session states
